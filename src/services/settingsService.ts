@@ -11,12 +11,17 @@ const SETTINGS_COLLECTION = 'settings';
 const SETTINGS_ID = 'general';
 
 export const getSiteSettings = async (): Promise<SiteSettings | null> => {
-  const docRef = doc(db, SETTINGS_COLLECTION, SETTINGS_ID);
-  const docSnap = await getDoc(docRef);
-  if (docSnap.exists()) {
-    return { id: docSnap.id, ...docSnap.data() } as SiteSettings;
+  try {
+    const docRef = doc(db, SETTINGS_COLLECTION, SETTINGS_ID);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return { id: docSnap.id, ...docSnap.data() } as SiteSettings;
+    }
+    return null;
+  } catch (error) {
+    console.warn('Erro ao buscar configurações do site:', error);
+    return null;
   }
-  return null;
 };
 
 export const updateSiteSettings = async (settings: Partial<SiteSettings>) => {

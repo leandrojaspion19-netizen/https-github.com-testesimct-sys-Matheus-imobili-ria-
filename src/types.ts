@@ -64,8 +64,8 @@ export interface UserProfile {
   phone?: string;
   photoURL?: string;
   role: UserRole;
-  createdAt: any;
-  updatedAt: any;
+  createdAt?: any;
+  updatedAt?: any;
   active: boolean;
   creci?: string;
   company?: string;

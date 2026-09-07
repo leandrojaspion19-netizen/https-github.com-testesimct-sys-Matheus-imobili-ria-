@@ -19,13 +19,19 @@ export default function Register() {
     setLoading(true);
 
     try {
-      await registerUser(name, email, password);
-      navigate('/');
+      const result = await registerUser(name, email, password);
+      if (result.profile.role === 'ADMIN' || result.profile.role === 'CORRETOR') {
+        navigate('/dashboard');
+      } else {
+        navigate('/');
+      }
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') {
         setError('Este e-mail já está em uso.');
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setError('O cadastro por e-mail e senha precisa ser ativado no Firebase Console (Authentication > Sign-in method > E-mail/Senha).');
       } else {
-        setError('Ocorreu um erro ao criar sua conta. Tente novamente.');
+        setError(err.message || 'Ocorreu um erro ao criar sua conta. Tente novamente.');
       }
     } finally {
       setLoading(false);

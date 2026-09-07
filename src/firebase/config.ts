@@ -31,7 +31,18 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 // Use the specific database ID from the config or environment
-const databaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID || firebaseConfigJson.firestoreDatabaseId || '(default)';
+const rawDbId = import.meta.env.VITE_FIREBASE_DATABASE_ID;
+const isValidDbId = (val?: string) => 
+  val && 
+  val !== '123456789' && 
+  val !== '(default)' && 
+  val !== 'default' &&
+  val.trim() !== '';
+
+const databaseId = (isValidDbId(rawDbId) 
+  ? rawDbId 
+  : firebaseConfigJson.firestoreDatabaseId) || 'ai-studio-eliteimveis-9f091968-3795-4dec-9b45-0b116e2f9266';
+
 export const db = getFirestore(app, databaseId);
 
 export const storage = getStorage(app);

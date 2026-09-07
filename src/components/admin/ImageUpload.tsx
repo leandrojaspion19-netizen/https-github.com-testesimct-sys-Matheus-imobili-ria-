@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { 
   Upload, 
@@ -27,10 +27,10 @@ interface ImageUploadProps {
   propertyId?: string;
 }
 
-export default function ImageUpload({ images: initialImages, onChange, propertyId }: ImageUploadProps) {
-  const [imageList, setImageList] = useState<ImageFile[]>(
+export default function ImageUpload({ images: initialImages = [], onChange, propertyId }: ImageUploadProps) {
+  const [imageList, setImageList] = useState<ImageFile[]>(() =>
     initialImages.map((url, index) => ({
-      id: `existing-${index}`,
+      id: `existing-${index}-${url}`,
       url,
       progress: 100,
       status: 'SUCCESS',
@@ -38,9 +38,53 @@ export default function ImageUpload({ images: initialImages, onChange, propertyI
     }))
   );
 
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  // Keep imageList in sync if parent updates initialImages (e.g. after async fetch)
+  useEffect(() => {
+    setImageList(prev => {
+      const currentSuccessUrls = prev.filter(img => img.status === 'SUCCESS').map(img => img.url);
+      const isSame = 
+        currentSuccessUrls.length === initialImages.length &&
+        currentSuccessUrls.every((url, i) => url === initialImages[i]);
+      if (isSame) return prev;
+
+      const pending = prev.filter(img => img.status === 'UPLOADING' || img.status === 'IDLE');
+      const loaded: ImageFile[] = initialImages.map((url, index) => ({
+        id: `existing-${index}-${url}`,
+        url,
+        progress: 100,
+        status: 'SUCCESS',
+        isMain: index === 0
+      }));
+      return [...loaded, ...pending];
+    });
+  }, [initialImages]);
+
+  const updateImageStatus = useCallback((id: string, status: ImageFile['status'], progress = 0, url?: string) => {
+    setImageList(prev => {
+      const newList = prev.map(img => 
+        img.id === id ? { ...img, status, progress, url: url || img.url } : img
+      );
+
+      // Notify parent safely outside of the setState render cycle
+      if (status === 'SUCCESS') {
+        const successUrls = newList
+          .filter(img => img.status === 'SUCCESS')
+          .map(img => img.url);
+        setTimeout(() => {
+          onChangeRef.current(successUrls);
+        }, 0);
+      }
+
+      return newList;
+    });
+  }, []);
+
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const newImages: ImageFile[] = acceptedFiles.map((file, index) => ({
-      id: `new-${Date.now()}-${index}`,
+      id: `new-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`,
       url: URL.createObjectURL(file),
       file,
       progress: 0,
@@ -63,32 +107,18 @@ export default function ImageUpload({ images: initialImages, onChange, propertyI
         }
       }
     }
-  }, [imageList, propertyId]);
-
-  const updateImageStatus = (id: string, status: ImageFile['status'], progress = 0, url?: string) => {
-    setImageList(prev => {
-      const newList = prev.map(img => 
-        img.id === id ? { ...img, status, progress, url: url || img.url } : img
-      );
-      
-      // Update parent only if we have success URLs
-      const successUrls = newList
-        .filter(img => img.status === 'SUCCESS')
-        .map(img => img.url);
-      onChange(successUrls);
-      
-      return newList;
-    });
-  };
+  }, [imageList.length, propertyId, updateImageStatus]);
 
   const removeImage = (id: string) => {
     setImageList(prev => {
       const newList = prev.filter(img => img.id !== id);
-      // Ensure one main image
-      if (newList.length > 0 && !newList.find(img => img.isMain)) {
+      if (newList.length > 0 && !newList.some(img => img.isMain)) {
         newList[0].isMain = true;
       }
-      onChange(newList.filter(img => img.status === 'SUCCESS').map(img => img.url));
+      const successUrls = newList.filter(img => img.status === 'SUCCESS').map(img => img.url);
+      setTimeout(() => {
+        onChangeRef.current(successUrls);
+      }, 0);
       return newList;
     });
   };
@@ -96,13 +126,15 @@ export default function ImageUpload({ images: initialImages, onChange, propertyI
   const setMainImage = (id: string) => {
     setImageList(prev => {
       const newList = prev.map(img => ({ ...img, isMain: img.id === id }));
-      // Reorder to put main first
       const mainIndex = newList.findIndex(img => img.isMain);
       if (mainIndex > -1) {
         const [main] = newList.splice(mainIndex, 1);
         newList.unshift(main);
       }
-      onChange(newList.filter(img => img.status === 'SUCCESS').map(img => img.url));
+      const successUrls = newList.filter(img => img.status === 'SUCCESS').map(img => img.url);
+      setTimeout(() => {
+        onChangeRef.current(successUrls);
+      }, 0);
       return newList;
     });
   };

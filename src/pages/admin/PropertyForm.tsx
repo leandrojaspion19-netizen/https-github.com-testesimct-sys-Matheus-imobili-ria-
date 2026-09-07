@@ -69,13 +69,18 @@ export default function PropertyForm() {
   useEffect(() => {
     if (isEditing) {
       const fetchProperty = async () => {
-        const property = await getPropertyById(id);
-        if (property) {
-          setFormData(property);
-        } else {
-          navigate('/dashboard/imoveis');
+        try {
+          const property = await getPropertyById(id);
+          if (property) {
+            setFormData(property);
+          } else {
+            navigate('/dashboard/imoveis');
+          }
+        } catch (err) {
+          console.warn('Erro ao carregar dados do imóvel:', err);
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
       };
       fetchProperty();
     }
